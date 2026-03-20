@@ -329,6 +329,33 @@
                     <option value="EUR">EUR</option>
                   </select>
                 </label>
+                <div class="settings-divider"></div>
+                <div>
+                  <p class="settings-subtitle">Synchronisation multi-appareils</p>
+                  <p class="helper-text">
+                    Pour que les changements faits sur l’appareil A se retrouvent aussi sur
+                    l’appareil B, utilisez les mêmes réglages Supabase et le même identifiant
+                    partagé sur tous les appareils.
+                  </p>
+                </div>
+                <label>
+                  <span>URL Supabase</span>
+                  <input id="sync-supabase-url" type="url" placeholder="https://votre-projet.supabase.co" />
+                </label>
+                <label>
+                  <span>Clé publique Supabase (anon key)</span>
+                  <textarea id="sync-supabase-key" rows="4" placeholder="eyJhbGciOi..."></textarea>
+                </label>
+                <label>
+                  <span>Identifiant partagé</span>
+                  <input id="sync-workspace-id" type="text" placeholder="Ex. couple-budget-principal" />
+                </label>
+                <div class="settings-actions">
+                  <button type="button" class="ghost-button" id="sync-now-button">Synchroniser maintenant</button>
+                </div>
+                <p id="sync-status" class="helper-text" aria-live="polite">
+                  Synchronisation cloud désactivée. Les données restent locales sur cet appareil.
+                </p>
                 <button type="submit" class="primary-button">Sauvegarder les réglages</button>
               </form>
 

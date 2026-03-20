@@ -1,4 +1,7 @@
 const STORAGE_KEY = 'budget-couple-app-v1';
+const SYNC_POLL_INTERVAL_MS = 15000;
+const SYNC_DEBOUNCE_MS = 1200;
+const DEVICE_ID_STORAGE_KEY = `${STORAGE_KEY}-device-id`;
 
 function createId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -7,9 +10,18 @@ function createId() {
 
 function createDefaultState() {
   return {
+    meta: {
+      lastModifiedAt: new Date(0).toISOString(),
+      lastModifiedBy: 'system',
+    },
     settings: {
       exchangeRate: 1.47,
       displayCurrency: 'CAD',
+      sync: {
+        supabaseUrl: '',
+        supabaseAnonKey: '',
+        workspaceId: '',
+      },
     },
     accounts: [
       {
@@ -41,11 +53,17 @@ function cloneData(value) {
 }
 
 const DEFAULT_STATE = createDefaultState();
+const DEVICE_ID = getOrCreateDeviceId();
 
 const state = loadState();
 const ui = {
   selectedMonth: getCurrentMonth(),
   activeTab: 'comptes',
+};
+const syncState = {
+  pendingTimer: null,
+  pollTimer: null,
+  activeRequest: null,
 };
 
 const refs = {
@@ -66,6 +84,11 @@ const refs = {
   settingsForm: document.getElementById('settings-form'),
   exchangeRateInput: document.getElementById('exchange-rate'),
   displayCurrencyInput: document.getElementById('display-currency'),
+  syncSupabaseUrlInput: document.getElementById('sync-supabase-url'),
+  syncSupabaseKeyInput: document.getElementById('sync-supabase-key'),
+  syncWorkspaceIdInput: document.getElementById('sync-workspace-id'),
+  syncNowButton: document.getElementById('sync-now-button'),
+  syncStatus: document.getElementById('sync-status'),
 };
 
 const forms = {
@@ -130,9 +153,10 @@ function initialize() {
   setDefaultDates();
   bindEvents();
   refs.monthInput.value = ui.selectedMonth;
-  refs.exchangeRateInput.value = state.settings.exchangeRate;
-  refs.displayCurrencyInput.value = state.settings.displayCurrency;
+  syncSettingsInputs();
+  startSyncPolling();
   renderAll();
+  syncFromCloud({ silent: true });
 }
 
 function bindEvents() {
@@ -148,12 +172,22 @@ function bindEvents() {
   refs.exportButton.addEventListener('click', exportData);
   refs.importInput.addEventListener('change', importData);
   refs.resetButton.addEventListener('click', resetApp);
+  refs.syncNowButton.addEventListener('click', () => {
+    syncNow();
+  });
 
   refs.settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
     state.settings.exchangeRate = clampPositiveNumber(refs.exchangeRateInput.value, state.settings.exchangeRate);
     state.settings.displayCurrency = refs.displayCurrencyInput.value === 'EUR' ? 'EUR' : 'CAD';
+    state.settings.sync = {
+      supabaseUrl: sanitizeUrl(refs.syncSupabaseUrlInput.value),
+      supabaseAnonKey: refs.syncSupabaseKeyInput.value.trim(),
+      workspaceId: refs.syncWorkspaceIdInput.value.trim(),
+    };
+    restartSyncPolling();
     persistAndRender('Réglages sauvegardés.');
+    syncNow({ silent: true });
   });
 
   forms.account.element.addEventListener('submit', handleAccountSubmit);
@@ -164,6 +198,14 @@ function bindEvents() {
 
   Object.values(forms).forEach((formGroup) => {
     formGroup.cancel.addEventListener('click', () => resetForm(formGroup));
+  });
+
+  window.addEventListener('focus', () => {
+    syncFromCloud({ silent: true });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncFromCloud({ silent: true });
   });
 }
 
@@ -182,8 +224,19 @@ function loadState() {
 
 function normalizeState(input) {
   const safe = createDefaultState();
+  safe.meta.lastModifiedAt = normalizeIsoDate(input?.meta?.lastModifiedAt, safe.meta.lastModifiedAt);
+  safe.meta.lastModifiedBy = typeof input?.meta?.lastModifiedBy === 'string' && input.meta.lastModifiedBy
+    ? input.meta.lastModifiedBy
+    : safe.meta.lastModifiedBy;
   safe.settings.exchangeRate = clampPositiveNumber(input?.settings?.exchangeRate, DEFAULT_STATE.settings.exchangeRate);
   safe.settings.displayCurrency = input?.settings?.displayCurrency === 'EUR' ? 'EUR' : 'CAD';
+  safe.settings.sync.supabaseUrl = sanitizeUrl(input?.settings?.sync?.supabaseUrl);
+  safe.settings.sync.supabaseAnonKey = typeof input?.settings?.sync?.supabaseAnonKey === 'string'
+    ? input.settings.sync.supabaseAnonKey.trim()
+    : '';
+  safe.settings.sync.workspaceId = typeof input?.settings?.sync?.workspaceId === 'string'
+    ? input.settings.sync.workspaceId.trim()
+    : '';
   safe.accounts = Array.isArray(input?.accounts) && input.accounts.length > 0
     ? input.accounts.map((item) => ({
         id: typeof item.id === 'string' ? item.id : createId(),
@@ -214,9 +267,212 @@ function normalizeEntries(collection, requiredFields) {
 }
 
 function persistAndRender(message) {
+  touchStateMetadata();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   renderAll();
+  queueCloudSync();
   if (message) showToast(message);
+}
+
+function syncSettingsInputs() {
+  refs.exchangeRateInput.value = state.settings.exchangeRate;
+  refs.displayCurrencyInput.value = state.settings.displayCurrency;
+  refs.syncSupabaseUrlInput.value = state.settings.sync.supabaseUrl;
+  refs.syncSupabaseKeyInput.value = state.settings.sync.supabaseAnonKey;
+  refs.syncWorkspaceIdInput.value = state.settings.sync.workspaceId;
+  updateSyncStatus();
+}
+
+function touchStateMetadata() {
+  state.meta.lastModifiedAt = new Date().toISOString();
+  state.meta.lastModifiedBy = DEVICE_ID;
+}
+
+function getOrCreateDeviceId() {
+  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+  if (existing) return existing;
+  const created = createId();
+  localStorage.setItem(DEVICE_ID_STORAGE_KEY, created);
+  return created;
+}
+
+function getSyncConfig() {
+  const config = state.settings.sync || DEFAULT_STATE.settings.sync;
+  return {
+    supabaseUrl: sanitizeUrl(config.supabaseUrl),
+    supabaseAnonKey: String(config.supabaseAnonKey || '').trim(),
+    workspaceId: String(config.workspaceId || '').trim(),
+  };
+}
+
+function hasSyncConfig() {
+  const config = getSyncConfig();
+  return Boolean(config.supabaseUrl && config.supabaseAnonKey && config.workspaceId);
+}
+
+function updateSyncStatus(message) {
+  if (message) {
+    refs.syncStatus.textContent = message;
+    return;
+  }
+
+  if (!hasSyncConfig()) {
+    refs.syncStatus.textContent = 'Synchronisation cloud désactivée. Les données restent locales sur cet appareil.';
+    return;
+  }
+
+  refs.syncStatus.textContent = `Synchronisation cloud active pour "${getSyncConfig().workspaceId}". Vérification automatique toutes les ${Math.round(SYNC_POLL_INTERVAL_MS / 1000)} secondes.`;
+}
+
+function startSyncPolling() {
+  updateSyncStatus();
+  if (!hasSyncConfig()) return;
+  syncState.pollTimer = window.setInterval(() => {
+    syncFromCloud({ silent: true });
+  }, SYNC_POLL_INTERVAL_MS);
+}
+
+function restartSyncPolling() {
+  clearInterval(syncState.pollTimer);
+  syncState.pollTimer = null;
+  startSyncPolling();
+}
+
+function queueCloudSync() {
+  if (!hasSyncConfig()) {
+    updateSyncStatus();
+    return;
+  }
+
+  clearTimeout(syncState.pendingTimer);
+  syncState.pendingTimer = window.setTimeout(() => {
+    uploadStateToCloud({ silent: true });
+  }, SYNC_DEBOUNCE_MS);
+}
+
+async function syncNow(options = {}) {
+  if (!hasSyncConfig()) {
+    showToast('Configurez Supabase dans les réglages pour synchroniser plusieurs appareils.');
+    updateSyncStatus();
+    return;
+  }
+
+  await syncFromCloud({ silent: options.silent ?? false });
+  await uploadStateToCloud({ silent: options.silent ?? false });
+}
+
+async function syncFromCloud({ silent = false } = {}) {
+  if (!hasSyncConfig()) {
+    updateSyncStatus();
+    return;
+  }
+
+  if (syncState.activeRequest) return syncState.activeRequest;
+
+  syncState.activeRequest = (async () => {
+    try {
+      updateSyncStatus('Lecture des changements cloud…');
+      const remoteState = await fetchRemoteState();
+      if (!remoteState) {
+        updateSyncStatus('Aucune sauvegarde cloud trouvée pour cet identifiant partagé.');
+        return;
+      }
+
+      const remoteStamp = Date.parse(remoteState.meta?.lastModifiedAt || 0);
+      const localStamp = Date.parse(state.meta?.lastModifiedAt || 0);
+      if (Number.isFinite(remoteStamp) && remoteStamp > localStamp) {
+        applyIncomingState(remoteState);
+        updateSyncStatus(`Données synchronisées depuis le cloud à ${formatDateTime(state.meta.lastModifiedAt)}.`);
+        if (!silent) showToast('Les dernières données cloud ont été récupérées.');
+        return;
+      }
+
+      updateSyncStatus(`Aucun changement distant plus récent. Dernière mise à jour locale : ${formatDateTime(state.meta.lastModifiedAt)}.`);
+    } catch (error) {
+      console.error(error);
+      updateSyncStatus(`Synchronisation cloud indisponible : ${error.message}`);
+      if (!silent) showToast('Impossible de récupérer les données cloud.');
+    } finally {
+      syncState.activeRequest = null;
+    }
+  })();
+
+  return syncState.activeRequest;
+}
+
+async function uploadStateToCloud({ silent = false } = {}) {
+  if (!hasSyncConfig()) {
+    updateSyncStatus();
+    return;
+  }
+
+  try {
+    updateSyncStatus('Envoi des changements vers le cloud…');
+    await pushRemoteState(state);
+    updateSyncStatus(`Cloud à jour. Dernière écriture : ${formatDateTime(state.meta.lastModifiedAt)}.`);
+    if (!silent) showToast('Synchronisation cloud terminée.');
+  } catch (error) {
+    console.error(error);
+    updateSyncStatus(`Échec de l’envoi cloud : ${error.message}`);
+    if (!silent) showToast('Impossible d’envoyer les données vers le cloud.');
+  }
+}
+
+async function fetchRemoteState() {
+  const config = getSyncConfig();
+  const response = await fetch(
+    `${config.supabaseUrl}/rest/v1/app_state?id=eq.${encodeURIComponent(config.workspaceId)}&select=payload`,
+    {
+      headers: createSupabaseHeaders(config),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Lecture Supabase refusée (${response.status})`);
+  }
+
+  const rows = await response.json();
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  return normalizeState(rows[0].payload);
+}
+
+async function pushRemoteState(nextState) {
+  const config = getSyncConfig();
+  const response = await fetch(`${config.supabaseUrl}/rest/v1/app_state`, {
+    method: 'POST',
+    headers: {
+      ...createSupabaseHeaders(config),
+      'Content-Type': 'application/json',
+      Prefer: 'resolution=merge-duplicates',
+    },
+    body: JSON.stringify([
+      {
+        id: config.workspaceId,
+        payload: nextState,
+      },
+    ]),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Écriture Supabase refusée (${response.status})`);
+  }
+}
+
+function createSupabaseHeaders(config) {
+  return {
+    apikey: config.supabaseAnonKey,
+    Authorization: `Bearer ${config.supabaseAnonKey}`,
+  };
+}
+
+function applyIncomingState(nextState) {
+  const normalized = normalizeState(nextState);
+  Object.keys(state).forEach((key) => {
+    state[key] = normalized[key];
+  });
+  syncSettingsInputs();
+  renderAll();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function renderAll() {
@@ -795,8 +1051,8 @@ function importData(event) {
       const parsed = JSON.parse(String(reader.result));
       const importedState = normalizeState(parsed);
       Object.assign(state, importedState);
-      refs.exchangeRateInput.value = state.settings.exchangeRate;
-      refs.displayCurrencyInput.value = state.settings.displayCurrency;
+      syncSettingsInputs();
+      restartSyncPolling();
       persistAndRender('Import réussi.');
     } catch (error) {
       console.error(error);
@@ -818,8 +1074,8 @@ function resetApp() {
   });
   ui.selectedMonth = getCurrentMonth();
   refs.monthInput.value = ui.selectedMonth;
-  refs.exchangeRateInput.value = state.settings.exchangeRate;
-  refs.displayCurrencyInput.value = state.settings.displayCurrency;
+  syncSettingsInputs();
+  restartSyncPolling();
   Object.values(forms).forEach(resetForm);
   persistAndRender('Application réinitialisée.');
 }
@@ -859,6 +1115,14 @@ function formatMonthLabel(value) {
   return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
 }
 
+function formatDateTime(value) {
+  if (!value) return 'inconnue';
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
 function getMonthFromDate(value) {
   return String(value || '').slice(0, 7);
 }
@@ -880,6 +1144,15 @@ function clampPositiveNumber(value, fallback = 0) {
 
 function roundAmount(value) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+function sanitizeUrl(value) {
+  return String(value || '').trim().replace(/\/+$/, '');
+}
+
+function normalizeIsoDate(value, fallback) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : fallback;
 }
 
 function escapeHtml(value) {
