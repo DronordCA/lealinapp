@@ -12,109 +12,69 @@
   </head>
   <body>
     <div class="app-shell">
-      <header class="hero-card surface">
-        <div>
-          <p class="eyebrow">Budget perso à deux</p>
-          <h1>Budget Couple</h1>
-          <p class="hero-copy">
-            Une application simple, élégante et 100 % locale pour suivre vos comptes,
-            dépenses, revenus et virements sans backend.
-          </p>
-        </div>
-        <div class="hero-actions">
-          <button type="button" class="ghost-button" id="export-button">Exporter JSON</button>
-          <label class="ghost-button import-button" for="import-input">Importer JSON</label>
-          <input id="import-input" type="file" accept="application/json" hidden />
-        </div>
-      </header>
-
-      <main>
-        <section class="surface dashboard-summary">
-          <div class="summary-topbar">
-            <div>
-              <p class="eyebrow">Vue globale</p>
-              <h2>Tableau de bord</h2>
+      <main class="app-main">
+        <section class="screen active" data-screen="accueil">
+          <header class="top-hero">
+            <div class="hero-row">
+              <div>
+                <p class="eyebrow eyebrow-light">Patrimoine total</p>
+                <h1 id="hero-total">0,00 $</h1>
+                <p class="hero-secondary" id="hero-secondary">0,00 €</p>
+              </div>
+              <label class="month-pill" for="selected-month">
+                <span>Mois</span>
+                <input id="selected-month" type="month" />
+              </label>
             </div>
-            <label class="month-filter">
-              <span>Mois analysé</span>
-              <input id="selected-month" type="month" />
-            </label>
-          </div>
+            <p class="hero-month" id="hero-month">Mars 2026</p>
+          </header>
 
-          <div class="metrics-grid" id="dashboard-metrics"></div>
-          <div class="accounts-overview" id="accounts-overview"></div>
-        </section>
-
-        <nav class="tabs" aria-label="Navigation principale">
-          <button class="tab-button active" data-tab="comptes">Comptes</button>
-          <button class="tab-button" data-tab="depenses">Dépenses</button>
-          <button class="tab-button" data-tab="revenus">Revenus</button>
-          <button class="tab-button" data-tab="virements">Virements</button>
-          <button class="tab-button" data-tab="fixes">Dépenses fixes</button>
-          <button class="tab-button" data-tab="reglages">Réglages</button>
-        </nav>
-
-        <section class="tab-panel active" data-panel="comptes">
-          <div class="panel-grid">
-            <article class="surface form-card">
-              <div class="section-heading">
+          <section class="content-stack">
+            <article class="card-section">
+              <div class="section-title-wrap">
                 <div>
-                  <p class="eyebrow">Comptes multiples</p>
-                  <h2 id="account-form-title">Ajouter un compte</h2>
-                </div>
-                <button type="button" class="text-button hidden" id="cancel-account-edit">Annuler</button>
-              </div>
-
-              <form id="account-form" class="stack-form">
-                <input type="hidden" id="account-id" />
-                <label>
-                  <span>Nom du compte</span>
-                  <input id="account-name" type="text" placeholder="Ex. Compte courant Canada" required />
-                </label>
-                <label>
-                  <span>Pays / zone</span>
-                  <select id="account-country" required>
-                    <option value="Canada">Canada</option>
-                    <option value="France">France</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Devise</span>
-                  <select id="account-currency" required>
-                    <option value="CAD">CAD</option>
-                    <option value="EUR">EUR</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Solde d'ouverture</span>
-                  <input id="account-opening-balance" type="number" step="0.01" inputmode="decimal" required />
-                </label>
-                <button type="submit" class="primary-button">Enregistrer le compte</button>
-              </form>
-            </article>
-
-            <article class="surface list-card">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Soldes</p>
-                  <h2>Liste des comptes</h2>
+                  <p class="eyebrow">Vue comptes</p>
+                  <h2>Mes comptes</h2>
                 </div>
               </div>
-              <div id="accounts-list" class="card-list"></div>
+              <div class="accounts-grid" id="home-accounts"></div>
             </article>
-          </div>
+
+            <article class="card-section spotlight-card">
+              <div class="section-title-wrap">
+                <div>
+                  <p class="eyebrow">Synthèse mensuelle</p>
+                  <h2>Solde ce mois</h2>
+                </div>
+              </div>
+              <p class="spotlight-amount" id="month-balance-value">0,00 $</p>
+              <div class="stat-chips-row" id="month-stat-chips"></div>
+            </article>
+
+            <article class="card-section">
+              <div class="section-title-wrap">
+                <div>
+                  <p class="eyebrow">Répartition</p>
+                  <h2>Ce mois par catégorie</h2>
+                </div>
+              </div>
+              <div class="category-list" id="category-breakdown"></div>
+            </article>
+          </section>
         </section>
 
-        <section class="tab-panel" data-panel="depenses">
-          <div class="panel-grid">
-            <article class="surface form-card">
-              <div class="section-heading">
+        <section class="screen" data-screen="depense">
+          <div class="content-stack">
+            <article class="card-section form-card">
+              <div class="section-title-wrap">
                 <div>
                   <p class="eyebrow">Dépenses variables</p>
-                  <h2 id="expense-form-title">Ajouter une dépense</h2>
+                  <h2 id="expense-form-title">Nouvelle dépense</h2>
                 </div>
                 <button type="button" class="text-button hidden" id="cancel-expense-edit">Annuler</button>
               </div>
+
+              <div id="expense-error" class="form-error hidden" role="alert"></div>
 
               <form id="expense-form" class="stack-form">
                 <input type="hidden" id="expense-id" />
@@ -127,43 +87,50 @@
                   <input id="expense-description" type="text" placeholder="Ex. Courses" required />
                 </label>
                 <label>
+                  <span>Catégorie</span>
+                  <input id="expense-category" type="text" placeholder="Ex. Alimentaire" required />
+                </label>
+                <label>
                   <span>Montant</span>
                   <input id="expense-amount" type="number" step="0.01" inputmode="decimal" required />
                 </label>
                 <label>
-                  <span>Compte associé</span>
+                  <span>Compte</span>
                   <select id="expense-account" required></select>
-                </label>
-                <label>
-                  <span>Catégorie</span>
-                  <input id="expense-category" type="text" placeholder="Ex. Alimentaire" required />
                 </label>
                 <button type="submit" class="primary-button">Enregistrer la dépense</button>
               </form>
             </article>
 
-            <article class="surface list-card">
-              <div class="section-heading">
+            <article class="card-section">
+              <div class="section-title-wrap">
                 <div>
                   <p class="eyebrow">Historique</p>
                   <h2>Dépenses enregistrées</h2>
                 </div>
               </div>
-              <div id="expenses-list" class="card-list"></div>
+              <div id="expenses-list" class="ledger-list"></div>
             </article>
           </div>
         </section>
 
-        <section class="tab-panel" data-panel="revenus">
-          <div class="panel-grid">
-            <article class="surface form-card">
-              <div class="section-heading">
+        <section class="screen" data-screen="argent">
+          <div class="content-stack">
+            <div class="segmented-control" role="tablist" aria-label="Modes argent">
+              <button type="button" class="segment-button active" data-money-mode="revenu">Revenu</button>
+              <button type="button" class="segment-button" data-money-mode="virement">Virement</button>
+            </div>
+
+            <article class="card-section form-card money-panel active" data-money-panel="revenu">
+              <div class="section-title-wrap">
                 <div>
                   <p class="eyebrow">Entrées d'argent</p>
-                  <h2 id="income-form-title">Ajouter un revenu</h2>
+                  <h2 id="income-form-title">Revenu / Salaire</h2>
                 </div>
                 <button type="button" class="text-button hidden" id="cancel-income-edit">Annuler</button>
               </div>
+
+              <div id="income-error" class="form-error hidden" role="alert"></div>
 
               <form id="income-form" class="stack-form">
                 <input type="hidden" id="income-id" />
@@ -180,11 +147,15 @@
                   <input id="income-amount" type="number" step="0.01" inputmode="decimal" required />
                 </label>
                 <label>
-                  <span>Devise du revenu</span>
+                  <span>Devise</span>
                   <select id="income-currency" required>
                     <option value="CAD">CAD</option>
                     <option value="EUR">EUR</option>
                   </select>
+                </label>
+                <label id="income-exchange-wrap" class="hidden">
+                  <span>Taux EUR → CAD</span>
+                  <input id="income-exchange-rate" type="number" step="0.0001" inputmode="decimal" />
                 </label>
                 <label>
                   <span>Compte de destination</span>
@@ -194,34 +165,26 @@
               </form>
             </article>
 
-            <article class="surface list-card">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Historique</p>
-                  <h2>Revenus enregistrés</h2>
-                </div>
-              </div>
-              <div id="incomes-list" class="card-list"></div>
-            </article>
-          </div>
-        </section>
-
-        <section class="tab-panel" data-panel="virements">
-          <div class="panel-grid">
-            <article class="surface form-card">
-              <div class="section-heading">
+            <article class="card-section form-card money-panel" data-money-panel="virement">
+              <div class="section-title-wrap">
                 <div>
                   <p class="eyebrow">Entre vos comptes</p>
-                  <h2 id="transfer-form-title">Ajouter un virement</h2>
+                  <h2 id="transfer-form-title">Virement</h2>
                 </div>
                 <button type="button" class="text-button hidden" id="cancel-transfer-edit">Annuler</button>
               </div>
+
+              <div id="transfer-error" class="form-error hidden" role="alert"></div>
 
               <form id="transfer-form" class="stack-form">
                 <input type="hidden" id="transfer-id" />
                 <label>
                   <span>Date</span>
                   <input id="transfer-date" type="date" required />
+                </label>
+                <label>
+                  <span>Description</span>
+                  <input id="transfer-description" type="text" placeholder="Ex. Épargne" required />
                 </label>
                 <label>
                   <span>Compte source</span>
@@ -235,91 +198,69 @@
                   <span>Montant</span>
                   <input id="transfer-amount" type="number" step="0.01" inputmode="decimal" required />
                 </label>
-                <label>
-                  <span>Description</span>
-                  <input id="transfer-description" type="text" placeholder="Ex. Épargne" required />
-                </label>
                 <p class="helper-text">
-                  Si les devises diffèrent, le montant est saisi dans la devise du compte source
-                  puis converti automatiquement avec le taux EUR/CAD.
+                  Si les devises diffèrent, le montant est saisi dans la devise du compte source puis converti automatiquement.
                 </p>
                 <button type="submit" class="primary-button">Enregistrer le virement</button>
               </form>
             </article>
 
-            <article class="surface list-card">
-              <div class="section-heading">
+            <article class="card-section">
+              <div class="section-title-wrap">
+                <div>
+                  <p class="eyebrow">Historique</p>
+                  <h2>Revenus enregistrés</h2>
+                </div>
+              </div>
+              <div id="incomes-list" class="ledger-list"></div>
+            </article>
+
+            <article class="card-section">
+              <div class="section-title-wrap">
                 <div>
                   <p class="eyebrow">Historique</p>
                   <h2>Virements enregistrés</h2>
                 </div>
               </div>
-              <div id="transfers-list" class="card-list"></div>
+              <div id="transfers-list" class="ledger-list"></div>
             </article>
           </div>
         </section>
 
-        <section class="tab-panel" data-panel="fixes">
-          <div class="panel-grid">
-            <article class="surface form-card">
-              <div class="section-heading">
+        <section class="screen" data-screen="reglages">
+          <div class="content-stack">
+            <article class="card-section">
+              <div class="section-title-wrap">
+                <div>
+                  <p class="eyebrow">Comptes</p>
+                  <h2>Comptes</h2>
+                </div>
+                <button type="button" class="secondary-button" id="add-account-button">+ Ajouter un compte</button>
+              </div>
+              <div id="accounts-list" class="settings-stack"></div>
+            </article>
+
+            <article class="card-section">
+              <div class="section-title-wrap">
                 <div>
                   <p class="eyebrow">Mensuel</p>
-                  <h2 id="fixed-form-title">Ajouter une dépense fixe</h2>
+                  <h2>Dépenses fixes</h2>
                 </div>
-                <button type="button" class="text-button hidden" id="cancel-fixed-edit">Annuler</button>
+                <button type="button" class="secondary-button" id="add-fixed-button">+ Ajouter une ligne</button>
               </div>
-
-              <form id="fixed-form" class="stack-form">
-                <input type="hidden" id="fixed-id" />
-                <label>
-                  <span>Description</span>
-                  <input id="fixed-description" type="text" placeholder="Ex. Loyer" required />
-                </label>
-                <label>
-                  <span>Montant</span>
-                  <input id="fixed-amount" type="number" step="0.01" inputmode="decimal" required />
-                </label>
-                <label>
-                  <span>Devise</span>
-                  <select id="fixed-currency" required>
-                    <option value="CAD">CAD</option>
-                    <option value="EUR">EUR</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Catégorie</span>
-                  <input id="fixed-category" type="text" placeholder="Ex. Logement" required />
-                </label>
-                <button type="submit" class="primary-button">Enregistrer la dépense fixe</button>
-              </form>
+              <div id="fixed-list" class="settings-stack"></div>
             </article>
 
-            <article class="surface list-card">
-              <div class="section-heading">
+            <article class="card-section compact-card">
+              <div class="section-title-wrap">
                 <div>
-                  <p class="eyebrow">Récurrent</p>
-                  <h2>Dépenses fixes mensuelles</h2>
+                  <p class="eyebrow">Conversion</p>
+                  <h2>Taux EUR → CAD</h2>
                 </div>
               </div>
-              <div id="fixed-list" class="card-list"></div>
-            </article>
-          </div>
-        </section>
-
-        <section class="tab-panel" data-panel="reglages">
-          <div class="panel-grid single-column">
-            <article class="surface form-card">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Conversion & sécurité</p>
-                  <h2>Réglages</h2>
-                </div>
-              </div>
-
               <form id="settings-form" class="stack-form compact-form">
                 <label>
-                  <span>Taux EUR → CAD</span>
+                  <span>Taux de conversion</span>
                   <input id="exchange-rate" type="number" step="0.0001" inputmode="decimal" required />
                 </label>
                 <label>
@@ -329,22 +270,34 @@
                     <option value="EUR">EUR</option>
                   </select>
                 </label>
-                <button type="submit" class="primary-button">Sauvegarder les réglages</button>
+                <button type="submit" class="primary-button">Sauvegarder</button>
               </form>
+            </article>
 
-              <div class="danger-zone">
+            <article class="card-section compact-card">
+              <div class="section-title-wrap">
                 <div>
-                  <h3>Réinitialisation</h3>
-                  <p>
-                    Supprime toutes les données locales de l'application après confirmation.
-                  </p>
+                  <p class="eyebrow">Données locales</p>
+                  <h2>Exporter, importer, réinitialiser</h2>
                 </div>
+              </div>
+              <div class="settings-actions">
+                <button type="button" class="secondary-button" id="export-button">Exporter JSON</button>
+                <label class="secondary-button import-button" for="import-input">Importer JSON</label>
+                <input id="import-input" type="file" accept="application/json" hidden />
                 <button type="button" class="danger-button" id="reset-button">Réinitialiser</button>
               </div>
             </article>
           </div>
         </section>
       </main>
+
+      <nav class="bottom-nav" aria-label="Navigation principale">
+        <button type="button" class="nav-button active" data-screen-target="accueil">Accueil</button>
+        <button type="button" class="nav-button" data-screen-target="depense">Dépense</button>
+        <button type="button" class="nav-button" data-screen-target="argent">Argent</button>
+        <button type="button" class="nav-button" data-screen-target="reglages">Réglages</button>
+      </nav>
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
