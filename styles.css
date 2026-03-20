@@ -43,7 +43,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -321,8 +322,10 @@ button {
 
 .stack-form input,
 .stack-form select,
-.settings-editor input,
-.settings-editor select {
+
+.stack-form textarea,
+.month-filter input {
+ main
   width: 100%;
   border: 1px solid rgba(26, 36, 52, 0.06);
   border-radius: 18px;
@@ -334,30 +337,43 @@ button {
 
 .stack-form input:focus,
 .stack-form select:focus,
-.settings-editor input:focus,
-.settings-editor select:focus,
-.month-pill input:focus {
-  outline: 2px solid rgba(78, 143, 247, 0.2);
-  border-color: rgba(78, 143, 247, 0.2);
+
+.stack-form textarea:focus,
+.month-filter input:focus {
+  outline: 2px solid rgba(110, 168, 254, 0.35);
+  outline-offset: 1px;
 }
 
-.primary-button,
-.secondary-button,
-.text-button,
-.danger-button,
-.segment-button,
-.nav-button {
-  border: 0;
-  border-radius: 999px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+.stack-form textarea {
+  resize: vertical;
+  min-height: 108px;
 }
 
-.primary-button,
-.secondary-button,
-.danger-button {
-  width: 100%;
-  padding: 15px 18px;
+.compact-form {
+  max-width: 480px;
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0 2px;
+}
+
+.settings-subtitle {
+  margin: 0 0 8px;
   font-weight: 700;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.section-heading {
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+ main
 }
 
 .primary-button {
