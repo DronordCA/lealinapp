@@ -1,336 +1,67 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Application de budget de couple, stable et locale, compatible GitHub Pages."
-    />
-    <title>Budget Couple</title>
-    <link rel="stylesheet" href="./styles.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <main class="app-main">
-        <section class="screen active" data-screen="accueil">
-          <header class="top-hero">
-            <div class="hero-row">
-              <div>
-                <p class="eyebrow eyebrow-light">Patrimoine total</p>
-                <h1 id="hero-total">0,00 $</h1>
-                <p class="hero-secondary" id="hero-secondary">0,00 €</p>
-              </div>
-              <label class="month-pill" for="selected-month">
-                <span>Mois</span>
-                <input id="selected-month" type="month" />
-              </label>
-            </div>
-            <p class="hero-month" id="hero-month">Mars 2026</p>
-          </header>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
 
-          <section class="content-stack">
-            <article class="card-section">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Vue comptes</p>
-                  <h2>Mes comptes</h2>
-                </div>
-              </div>
-              <div class="accounts-grid" id="home-accounts"></div>
-            </article>
+<div class="app">
 
-            <article class="card-section spotlight-card">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Synthèse mensuelle</p>
-                  <h2>Solde ce mois</h2>
-                </div>
-              </div>
-              <p class="spotlight-amount" id="month-balance-value">0,00 $</p>
-              <div class="stat-chips-row" id="month-stat-chips"></div>
-            </article>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="subtitle">Patrimoine total</div>
+    <div id="total" class="total">0 $</div>
+    <div id="total-eur" class="secondary">0 €</div>
+  </header>
 
-            <article class="card-section">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Répartition</p>
-                  <h2>Ce mois par catégorie</h2>
-                </div>
-              </div>
-              <div class="category-list" id="category-breakdown"></div>
-            </article>
-          </section>
-        </section>
+  <!-- MAIN -->
+  <main>
 
-        <section class="screen" data-screen="depense">
-          <div class="content-stack">
-            <article class="card-section form-card">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Dépenses variables</p>
-                  <h2 id="expense-form-title">Nouvelle dépense</h2>
-                </div>
-                <button type="button" class="text-button hidden" id="cancel-expense-edit">Annuler</button>
-              </div>
+    <!-- COMPTES -->
+    <section id="accounts" class="grid"></section>
 
-              <div id="expense-error" class="form-error hidden" role="alert"></div>
+    <!-- SOLDE MOIS -->
+    <section class="card">
+      <div class="card-title">Solde ce mois</div>
+      <div id="monthly" class="big">0 $</div>
 
-              <form id="expense-form" class="stack-form">
-                <input type="hidden" id="expense-id" />
-                <label>
-                  <span>Date</span>
-                  <input id="expense-date" type="date" required />
-                </label>
-                <label>
-                  <span>Description</span>
-                  <input id="expense-description" type="text" placeholder="Ex. Courses" required />
-                </label>
-                <label>
-                  <span>Catégorie</span>
-                  <input id="expense-category" type="text" placeholder="Ex. Alimentaire" required />
-                </label>
-                <label>
-                  <span>Montant</span>
-                  <input id="expense-amount" type="number" step="0.01" inputmode="decimal" required />
-                </label>
-                <label>
-                  <span>Compte</span>
-                  <select id="expense-account" required></select>
-                </label>
-                <button type="submit" class="primary-button">Enregistrer la dépense</button>
-              </form>
-            </article>
+      <div class="stats">
+        <div class="pill green">
+          <div>Reçus</div>
+          <span id="received">0</span>
+        </div>
+        <div class="pill blue">
+          <div>Fixes</div>
+          <span id="fixed">0</span>
+        </div>
+        <div class="pill orange">
+          <div>Variables</div>
+          <span id="variable">0</span>
+        </div>
+      </div>
+    </section>
 
-            <article class="card-section">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Historique</p>
-                  <h2>Dépenses enregistrées</h2>
-                </div>
-              </div>
-              <div id="expenses-list" class="ledger-list"></div>
-            </article>
-          </div>
-        </section>
+    <!-- LISTE -->
+    <section class="card">
+      <div class="card-title">Historique</div>
+      <ul id="list"></ul>
+    </section>
 
-        <section class="screen" data-screen="argent">
-          <div class="content-stack">
-            <div class="segmented-control" role="tablist" aria-label="Modes argent">
-              <button type="button" class="segment-button active" data-money-mode="revenu">Revenu</button>
-              <button type="button" class="segment-button" data-money-mode="virement">Virement</button>
-            </div>
+  </main>
 
-            <article class="card-section form-card money-panel active" data-money-panel="revenu">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Entrées d'argent</p>
-                  <h2 id="income-form-title">Revenu / Salaire</h2>
-                </div>
-                <button type="button" class="text-button hidden" id="cancel-income-edit">Annuler</button>
-              </div>
+  <!-- NAV -->
+  <nav class="nav">
+    <button onclick="setTab('home')">Accueil</button>
+    <button onclick="setTab('add')">Dépense</button>
+    <button onclick="exportData()">Export</button>
+    <input type="file" onchange="importData(event)" />
+  </nav>
 
-              <div id="income-error" class="form-error hidden" role="alert"></div>
+</div>
 
-              <form id="income-form" class="stack-form">
-                <input type="hidden" id="income-id" />
-                <label>
-                  <span>Date</span>
-                  <input id="income-date" type="date" required />
-                </label>
-                <label>
-                  <span>Description</span>
-                  <input id="income-description" type="text" placeholder="Ex. Salaire" required />
-                </label>
-                <label>
-                  <span>Montant</span>
-                  <input id="income-amount" type="number" step="0.01" inputmode="decimal" required />
-                </label>
-                <label>
-                  <span>Devise</span>
-                  <select id="income-currency" required>
-                    <option value="CAD">CAD</option>
-                    <option value="EUR">EUR</option>
-                  </select>
-                </label>
-                <label id="income-exchange-wrap" class="hidden">
-                  <span>Taux EUR → CAD</span>
-                  <input id="income-exchange-rate" type="number" step="0.0001" inputmode="decimal" />
-                </label>
-                <label>
-                  <span>Compte de destination</span>
-                  <select id="income-account" required></select>
-                </label>
-                <button type="submit" class="primary-button">Enregistrer le revenu</button>
-              </form>
-            </article>
-
-            <article class="card-section form-card money-panel" data-money-panel="virement">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Entre vos comptes</p>
-                  <h2 id="transfer-form-title">Virement</h2>
-                </div>
-                <button type="button" class="text-button hidden" id="cancel-transfer-edit">Annuler</button>
-              </div>
-
-              <div id="transfer-error" class="form-error hidden" role="alert"></div>
-
-              <form id="transfer-form" class="stack-form">
-                <input type="hidden" id="transfer-id" />
-                <label>
-                  <span>Date</span>
-                  <input id="transfer-date" type="date" required />
-                </label>
-                <label>
-                  <span>Description</span>
-                  <input id="transfer-description" type="text" placeholder="Ex. Épargne" required />
-                </label>
-                <label>
-                  <span>Compte source</span>
-                  <select id="transfer-source" required></select>
-                </label>
-                <label>
-                  <span>Compte destination</span>
-                  <select id="transfer-destination" required></select>
-                </label>
-                <label>
-                  <span>Montant</span>
-                  <input id="transfer-amount" type="number" step="0.01" inputmode="decimal" required />
-                </label>
-                <p class="helper-text">
-                  Si les devises diffèrent, le montant est saisi dans la devise du compte source puis converti automatiquement.
-                </p>
-                <button type="submit" class="primary-button">Enregistrer le virement</button>
-              </form>
-            </article>
-
-            <article class="card-section">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Historique</p>
-                  <h2>Revenus enregistrés</h2>
-                </div>
-              </div>
-              <div id="incomes-list" class="ledger-list"></div>
-            </article>
-
-            <article class="card-section">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Historique</p>
-                  <h2>Virements enregistrés</h2>
-                </div>
-              </div>
-              <div id="transfers-list" class="ledger-list"></div>
-            </article>
-          </div>
-        </section>
-
-        <section class="screen" data-screen="reglages">
-          <div class="content-stack">
-            <article class="card-section">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Comptes</p>
-                  <h2>Comptes</h2>
-                </div>
-                <button type="button" class="secondary-button" id="add-account-button">+ Ajouter un compte</button>
-              </div>
-              <div id="accounts-list" class="settings-stack"></div>
-            </article>
-
-            <article class="card-section">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Mensuel</p>
-                  <h2>Dépenses fixes</h2>
-                </div>
-                <button type="button" class="secondary-button" id="add-fixed-button">+ Ajouter une ligne</button>
-              </div>
-              <div id="fixed-list" class="settings-stack"></div>
-            </article>
-
-            <article class="card-section compact-card">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Conversion</p>
-                  <h2>Taux EUR → CAD</h2>
-                </div>
-              </div>
-              <form id="settings-form" class="stack-form compact-form">
-                <label>
-                  <span>Taux de conversion</span>
-                  <input id="exchange-rate" type="number" step="0.0001" inputmode="decimal" required />
-                </label>
-                <label>
-                  <span>Devise principale d'affichage</span>
-                  <select id="display-currency" required>
-                    <option value="CAD">CAD</option>
-                    <option value="EUR">EUR</option>
-                  </select>
-                </label>
-
-                <div class="settings-divider"></div>
-                <div>
-                  <p class="settings-subtitle">Synchronisation multi-appareils</p>
-                  <p class="helper-text">
-                    Pour que les changements faits sur l’appareil A se retrouvent aussi sur
-                    l’appareil B, utilisez les mêmes réglages Supabase et le même identifiant
-                    partagé sur tous les appareils.
-                  </p>
-                </div>
-                <label>
-                  <span>URL Supabase</span>
-                  <input id="sync-supabase-url" type="url" placeholder="https://votre-projet.supabase.co" />
-                </label>
-                <label>
-                  <span>Clé publique Supabase (anon key)</span>
-                  <textarea id="sync-supabase-key" rows="4" placeholder="eyJhbGciOi..."></textarea>
-                </label>
-                <label>
-                  <span>Identifiant partagé</span>
-                  <input id="sync-workspace-id" type="text" placeholder="Ex. couple-budget-principal" />
-                </label>
-                <div class="settings-actions">
-                  <button type="button" class="ghost-button" id="sync-now-button">Synchroniser maintenant</button>
-                </div>
-                <p id="sync-status" class="helper-text" aria-live="polite">
-                  Synchronisation cloud désactivée. Les données restent locales sur cet appareil.
-                </p>
-                <button type="submit" class="primary-button">Sauvegarder les réglages</button>
- main
-              </form>
-            </article>
-
-            <article class="card-section compact-card">
-              <div class="section-title-wrap">
-                <div>
-                  <p class="eyebrow">Données locales</p>
-                  <h2>Exporter, importer, réinitialiser</h2>
-                </div>
-              </div>
-              <div class="settings-actions">
-                <button type="button" class="secondary-button" id="export-button">Exporter JSON</button>
-                <label class="secondary-button import-button" for="import-input">Importer JSON</label>
-                <input id="import-input" type="file" accept="application/json" hidden />
-                <button type="button" class="danger-button" id="reset-button">Réinitialiser</button>
-              </div>
-            </article>
-          </div>
-        </section>
-      </main>
-
-      <nav class="bottom-nav" aria-label="Navigation principale">
-        <button type="button" class="nav-button active" data-screen-target="accueil">Accueil</button>
-        <button type="button" class="nav-button" data-screen-target="depense">Dépense</button>
-        <button type="button" class="nav-button" data-screen-target="argent">Argent</button>
-        <button type="button" class="nav-button" data-screen-target="reglages">Réglages</button>
-      </nav>
-    </div>
-
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-    <script src="./app.js"></script>
-  </body>
+<script src="app.js"></script>
+</body>
 </html>
