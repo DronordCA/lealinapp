@@ -1,68 +1,113 @@
-:root {
-  color-scheme: light;
-  --bg: #f3f5f8;
-  --bg-soft: #eef2f6;
-  --card: #ffffff;
-  --card-muted: #f7f8fb;
-  --hero: #13161d;
-  --hero-soft: #232833;
-  --text: #1c2430;
-  --muted: #7c8798;
-  --border: rgba(26, 36, 52, 0.08);
-  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
-  --shadow-chip: 0 8px 18px rgba(15, 23, 42, 0.07);
-  --radius-xl: 32px;
-  --radius-lg: 26px;
-  --radius-md: 20px;
-  --radius-sm: 16px;
-  --positive: #3cae72;
-  --positive-bg: #edf9f1;
-  --info: #4e8ff7;
-  --info-bg: #eef4ff;
-  --warning: #c8902f;
-  --warning-bg: #fff5e8;
-  --danger: #cb617d;
-  --danger-bg: #fdeef3;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html {
-  background: var(--bg);
-}
-
 body {
   margin: 0;
-  min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
+  font-family: -apple-system, sans-serif;
+  background: #f1f5f9;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+.app {
+  max-width: 420px;
+  margin: auto;
 }
 
-button {
-  cursor: pointer;
+/* HEADER */
+.header {
+  background: #0f172a;
+  color: white;
+  padding: 30px 20px;
+  border-bottom-left-radius: 30px;
+  border-bottom-right-radius: 30px;
 }
 
-input,
-select,
-button {
-  -webkit-tap-highlight-color: transparent;
+.subtitle {
+  font-size: 12px;
+  opacity: 0.7;
 }
 
-.app-shell {
-  width: min(100%, 520px);
-  margin: 0 auto;
-  min-height: 100vh;
-  padding: 0 16px 112px;
+.total {
+  font-size: 36px;
+  font-weight: bold;
+}
+
+.secondary {
+  opacity: 0.6;
+}
+
+/* GRID */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 15px;
+}
+
+.account {
+  background: white;
+  border-radius: 20px;
+  padding: 15px;
+}
+
+/* CARDS */
+.card {
+  background: white;
+  margin: 15px;
+  padding: 20px;
+  border-radius: 20px;
+}
+
+.card-title {
+  font-size: 12px;
+  color: gray;
+}
+
+.big {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+/* STATS */
+.stats {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pill {
+  flex: 1;
+  padding: 10px;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.green { background: #dcfce7; }
+.blue { background: #dbeafe; }
+.orange { background: #fef3c7; }
+
+/* LIST */
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+/* NAV */
+.nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  background: white;
+}
+
+.nav button {
+  flex: 1;
+  padding: 15px;
+  border: none;
+}  padding: 0 16px 112px;
   position: relative;
 }
 
