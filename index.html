@@ -1,67 +1,215 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Budget</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Budget App</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div id="toast" class="toast hidden"></div>
 
-<div class="app">
+      <header class="hero">
+        <div class="hero-kicker">Patrimoine total</div>
+        <div id="heroTotal" class="hero-total">0 $CA</div>
+        <div id="heroTotalEur" class="hero-secondary">0 €</div>
+        <div id="heroMonth" class="hero-month">—</div>
+      </header>
 
-  <!-- HEADER -->
-  <header class="header">
-    <div class="subtitle">Patrimoine total</div>
-    <div id="total" class="total">0 $</div>
-    <div id="total-eur" class="secondary">0 €</div>
-  </header>
+      <main class="content">
+        <!-- HOME -->
+        <section id="view-home" class="view active">
+          <section id="accountsGrid" class="accounts-grid"></section>
 
-  <!-- MAIN -->
-  <main>
+          <section class="card">
+            <div class="card-kicker">Solde ce mois</div>
+            <div id="monthlyBalance" class="big-balance">0 $CA</div>
 
-    <!-- COMPTES -->
-    <section id="accounts" class="grid"></section>
+            <div class="stats-grid">
+              <div class="stat-pill green">
+                <div class="stat-label">Reçus</div>
+                <div id="monthlyReceived" class="stat-value">0 $CA</div>
+              </div>
+              <div class="stat-pill blue">
+                <div class="stat-label">Fixes</div>
+                <div id="monthlyFixed" class="stat-value">0 $CA</div>
+              </div>
+              <div class="stat-pill amber">
+                <div class="stat-label">Variables</div>
+                <div id="monthlyVariable" class="stat-value">0 $CA</div>
+              </div>
+            </div>
+          </section>
 
-    <!-- SOLDE MOIS -->
-    <section class="card">
-      <div class="card-title">Solde ce mois</div>
-      <div id="monthly" class="big">0 $</div>
+          <section class="card">
+            <div class="card-kicker">Ce mois par catégorie</div>
+            <div id="categorySummary" class="list-stack"></div>
+          </section>
+        </section>
 
-      <div class="stats">
-        <div class="pill green">
-          <div>Reçus</div>
-          <span id="received">0</span>
-        </div>
-        <div class="pill blue">
-          <div>Fixes</div>
-          <span id="fixed">0</span>
-        </div>
-        <div class="pill orange">
-          <div>Variables</div>
-          <span id="variable">0</span>
-        </div>
-      </div>
-    </section>
+        <!-- DEPENSE -->
+        <section id="view-depense" class="view">
+          <section class="card form-card">
+            <h2>Nouvelle dépense</h2>
 
-    <!-- LISTE -->
-    <section class="card">
-      <div class="card-title">Historique</div>
-      <ul id="list"></ul>
-    </section>
+            <label class="field">
+              <span>Date</span>
+              <input id="expenseDate" type="date" />
+            </label>
 
-  </main>
+            <label class="field">
+              <span>Description</span>
+              <input id="expenseDesc" type="text" placeholder="Ex. courses, essence..." />
+            </label>
 
-  <!-- NAV -->
-  <nav class="nav">
-    <button onclick="setTab('home')">Accueil</button>
-    <button onclick="setTab('add')">Dépense</button>
-    <button onclick="exportData()">Export</button>
-    <input type="file" onchange="importData(event)" />
-  </nav>
+            <label class="field">
+              <span>Catégorie</span>
+              <select id="expenseCategory"></select>
+            </label>
 
-</div>
+            <label class="field">
+              <span>Montant</span>
+              <input id="expenseAmount" type="number" step="0.01" placeholder="0" />
+            </label>
 
-<script src="app.js"></script>
-</body>
+            <label class="field">
+              <span>Compte</span>
+              <select id="expenseAccount"></select>
+            </label>
+
+            <div id="expenseError" class="inline-error hidden"></div>
+
+            <button class="primary-btn" id="saveExpenseBtn">Enregistrer</button>
+          </section>
+        </section>
+
+        <!-- ARGENT -->
+        <section id="view-argent" class="view">
+          <div class="segment">
+            <button id="segmentIncome" class="segment-btn active">Revenu</button>
+            <button id="segmentTransfer" class="segment-btn">Virement</button>
+          </div>
+
+          <section id="incomeCard" class="card form-card">
+            <h2>Revenu / Salaire</h2>
+
+            <label class="field">
+              <span>Date</span>
+              <input id="incomeDate" type="date" />
+            </label>
+
+            <label class="field">
+              <span>Description</span>
+              <input id="incomeDesc" type="text" placeholder="Ex. salaire, remboursement..." />
+            </label>
+
+            <label class="field">
+              <span>Montant</span>
+              <input id="incomeAmount" type="number" step="0.01" placeholder="0" />
+            </label>
+
+            <label class="field">
+              <span>Devise</span>
+              <select id="incomeCurrency">
+                <option value="CAD">CAD</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </label>
+
+            <label class="field" id="incomeRateField">
+              <span>Taux EUR → CAD</span>
+              <input id="incomeRate" type="number" step="0.0001" placeholder="1.46" />
+            </label>
+
+            <label class="field">
+              <span>Vers compte</span>
+              <select id="incomeAccount"></select>
+            </label>
+
+            <div id="incomeError" class="inline-error hidden"></div>
+
+            <button class="primary-btn" id="saveIncomeBtn">Enregistrer</button>
+          </section>
+
+          <section id="transferCard" class="card form-card hidden">
+            <h2>Virement</h2>
+
+            <label class="field">
+              <span>Date</span>
+              <input id="transferDate" type="date" />
+            </label>
+
+            <label class="field">
+              <span>Description</span>
+              <input id="transferDesc" type="text" placeholder="Ex. transfert épargne..." />
+            </label>
+
+            <label class="field">
+              <span>Compte source</span>
+              <select id="transferSource"></select>
+            </label>
+
+            <label class="field">
+              <span>Compte destination</span>
+              <select id="transferDest"></select>
+            </label>
+
+            <label class="field">
+              <span>Montant</span>
+              <input id="transferAmount" type="number" step="0.01" placeholder="0" />
+            </label>
+
+            <div id="transferError" class="inline-error hidden"></div>
+
+            <button class="primary-btn" id="saveTransferBtn">Enregistrer</button>
+          </section>
+        </section>
+
+        <!-- REGLAGES -->
+        <section id="view-reglages" class="view">
+          <section class="card">
+            <h2>Comptes</h2>
+            <div id="accountsSettings" class="settings-stack"></div>
+            <button class="secondary-btn" id="addAccountBtn">+ Ajouter un compte</button>
+          </section>
+
+          <section class="card">
+            <h2>Dépenses fixes</h2>
+            <div id="fixedCostsList" class="settings-stack"></div>
+            <button class="secondary-btn" id="addFixedBtn">+ Ajouter une ligne</button>
+          </section>
+
+          <section class="card">
+            <h2>Taux EUR → CAD</h2>
+            <label class="field no-margin">
+              <span>Taux</span>
+              <input id="globalRate" type="number" step="0.0001" />
+            </label>
+          </section>
+
+          <section class="card">
+            <h2>Sauvegarde</h2>
+            <div class="settings-actions">
+              <button class="secondary-btn" id="exportBtn">Exporter en JSON</button>
+              <label class="secondary-btn file-btn">
+                Importer un JSON
+                <input id="importInput" type="file" accept="application/json" hidden />
+              </label>
+              <button class="danger-btn" id="resetBtn">Réinitialiser l'application</button>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <nav class="bottom-nav">
+        <button class="nav-btn active" data-view="home">Accueil</button>
+        <button class="nav-btn" data-view="depense">Dépense</button>
+        <button class="nav-btn" data-view="argent">Argent</button>
+        <button class="nav-btn" data-view="reglages">Réglages</button>
+      </nav>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
 </html>
