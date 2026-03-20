@@ -36,7 +36,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -261,6 +262,7 @@ button {
 
 .stack-form input,
 .stack-form select,
+.stack-form textarea,
 .month-filter input {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -272,13 +274,35 @@ button {
 
 .stack-form input:focus,
 .stack-form select:focus,
+.stack-form textarea:focus,
 .month-filter input:focus {
   outline: 2px solid rgba(110, 168, 254, 0.35);
   outline-offset: 1px;
 }
 
+.stack-form textarea {
+  resize: vertical;
+  min-height: 108px;
+}
+
 .compact-form {
   max-width: 480px;
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0 2px;
+}
+
+.settings-subtitle {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .section-heading {
