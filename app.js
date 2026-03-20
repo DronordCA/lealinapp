@@ -29,6 +29,7 @@ function createDefaultState() {
         name: 'Compte Canada',
         country: 'Canada',
         currency: 'CAD',
+        emoji: '🍁',
         openingBalance: 0,
         createdAt: new Date().toISOString(),
       },
@@ -37,6 +38,7 @@ function createDefaultState() {
         name: 'Compte France',
         country: 'France',
         currency: 'EUR',
+        emoji: '🇫🇷',
         openingBalance: 0,
         createdAt: new Date().toISOString(),
       },
@@ -53,12 +55,13 @@ function cloneData(value) {
 }
 
 const DEFAULT_STATE = createDefaultState();
-const DEVICE_ID = getOrCreateDeviceId();
-
 const state = loadState();
 const ui = {
   selectedMonth: getCurrentMonth(),
-  activeTab: 'comptes',
+  activeScreen: 'accueil',
+  moneyMode: 'revenu',
+  accountDrafts: [],
+  fixedDrafts: [],
 };
 const syncState = {
   pendingTimer: null,
@@ -69,8 +72,13 @@ const syncState = {
 const refs = {
   toast: document.getElementById('toast'),
   monthInput: document.getElementById('selected-month'),
-  metrics: document.getElementById('dashboard-metrics'),
-  accountsOverview: document.getElementById('accounts-overview'),
+  heroTotal: document.getElementById('hero-total'),
+  heroSecondary: document.getElementById('hero-secondary'),
+  heroMonth: document.getElementById('hero-month'),
+  homeAccounts: document.getElementById('home-accounts'),
+  monthBalanceValue: document.getElementById('month-balance-value'),
+  monthStatChips: document.getElementById('month-stat-chips'),
+  categoryBreakdown: document.getElementById('category-breakdown'),
   accountsList: document.getElementById('accounts-list'),
   expensesList: document.getElementById('expenses-list'),
   incomesList: document.getElementById('incomes-list'),
@@ -79,44 +87,35 @@ const refs = {
   exportButton: document.getElementById('export-button'),
   importInput: document.getElementById('import-input'),
   resetButton: document.getElementById('reset-button'),
-  tabButtons: [...document.querySelectorAll('.tab-button')],
-  panels: [...document.querySelectorAll('.tab-panel')],
+  addAccountButton: document.getElementById('add-account-button'),
+  addFixedButton: document.getElementById('add-fixed-button'),
+  screens: [...document.querySelectorAll('.screen')],
+  navButtons: [...document.querySelectorAll('.nav-button')],
+  moneyButtons: [...document.querySelectorAll('.segment-button')],
+  moneyPanels: [...document.querySelectorAll('.money-panel')],
   settingsForm: document.getElementById('settings-form'),
   exchangeRateInput: document.getElementById('exchange-rate'),
   displayCurrencyInput: document.getElementById('display-currency'),
-  syncSupabaseUrlInput: document.getElementById('sync-supabase-url'),
-  syncSupabaseKeyInput: document.getElementById('sync-supabase-key'),
-  syncWorkspaceIdInput: document.getElementById('sync-workspace-id'),
-  syncNowButton: document.getElementById('sync-now-button'),
-  syncStatus: document.getElementById('sync-status'),
 };
 
 const forms = {
-  account: {
-    element: document.getElementById('account-form'),
-    title: document.getElementById('account-form-title'),
-    cancel: document.getElementById('cancel-account-edit'),
-    id: document.getElementById('account-id'),
-    name: document.getElementById('account-name'),
-    country: document.getElementById('account-country'),
-    currency: document.getElementById('account-currency'),
-    openingBalance: document.getElementById('account-opening-balance'),
-  },
   expense: {
     element: document.getElementById('expense-form'),
     title: document.getElementById('expense-form-title'),
     cancel: document.getElementById('cancel-expense-edit'),
+    error: document.getElementById('expense-error'),
     id: document.getElementById('expense-id'),
     date: document.getElementById('expense-date'),
     description: document.getElementById('expense-description'),
+    category: document.getElementById('expense-category'),
     amount: document.getElementById('expense-amount'),
     accountId: document.getElementById('expense-account'),
-    category: document.getElementById('expense-category'),
   },
   income: {
     element: document.getElementById('income-form'),
     title: document.getElementById('income-form-title'),
     cancel: document.getElementById('cancel-income-edit'),
+    error: document.getElementById('income-error'),
     id: document.getElementById('income-id'),
     date: document.getElementById('income-date'),
     description: document.getElementById('income-description'),
@@ -128,22 +127,13 @@ const forms = {
     element: document.getElementById('transfer-form'),
     title: document.getElementById('transfer-form-title'),
     cancel: document.getElementById('cancel-transfer-edit'),
+    error: document.getElementById('transfer-error'),
     id: document.getElementById('transfer-id'),
     date: document.getElementById('transfer-date'),
+    description: document.getElementById('transfer-description'),
     sourceAccountId: document.getElementById('transfer-source'),
     destinationAccountId: document.getElementById('transfer-destination'),
     amount: document.getElementById('transfer-amount'),
-    description: document.getElementById('transfer-description'),
-  },
-  fixed: {
-    element: document.getElementById('fixed-form'),
-    title: document.getElementById('fixed-form-title'),
-    cancel: document.getElementById('cancel-fixed-edit'),
-    id: document.getElementById('fixed-id'),
-    description: document.getElementById('fixed-description'),
-    amount: document.getElementById('fixed-amount'),
-    currency: document.getElementById('fixed-currency'),
-    category: document.getElementById('fixed-category'),
   },
 };
 
@@ -153,20 +143,26 @@ function initialize() {
   setDefaultDates();
   bindEvents();
   refs.monthInput.value = ui.selectedMonth;
+
   syncSettingsInputs();
   startSyncPolling();
+ main
   renderAll();
   syncFromCloud({ silent: true });
 }
 
 function bindEvents() {
-  refs.tabButtons.forEach((button) => {
-    button.addEventListener('click', () => setActiveTab(button.dataset.tab));
+  refs.navButtons.forEach((button) => {
+    button.addEventListener('click', () => setActiveScreen(button.dataset.screenTarget));
+  });
+
+  refs.moneyButtons.forEach((button) => {
+    button.addEventListener('click', () => setMoneyMode(button.dataset.moneyMode));
   });
 
   refs.monthInput.addEventListener('change', (event) => {
     ui.selectedMonth = event.target.value || getCurrentMonth();
-    renderDashboard();
+    renderHome();
   });
 
   refs.exportButton.addEventListener('click', exportData);
@@ -174,6 +170,7 @@ function bindEvents() {
   refs.resetButton.addEventListener('click', resetApp);
   refs.syncNowButton.addEventListener('click', () => {
     syncNow();
+ main
   });
 
   refs.settingsForm.addEventListener('submit', (event) => {
@@ -186,17 +183,16 @@ function bindEvents() {
       workspaceId: refs.syncWorkspaceIdInput.value.trim(),
     };
     restartSyncPolling();
+ main
     persistAndRender('Réglages sauvegardés.');
     syncNow({ silent: true });
   });
 
-  forms.account.element.addEventListener('submit', handleAccountSubmit);
   forms.expense.element.addEventListener('submit', handleExpenseSubmit);
   forms.income.element.addEventListener('submit', handleIncomeSubmit);
   forms.transfer.element.addEventListener('submit', handleTransferSubmit);
-  forms.fixed.element.addEventListener('submit', handleFixedSubmit);
 
-  Object.values(forms).forEach((formGroup) => {
+  [forms.expense, forms.income, forms.transfer].forEach((formGroup) => {
     formGroup.cancel.addEventListener('click', () => resetForm(formGroup));
   });
 
@@ -207,6 +203,7 @@ function bindEvents() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') syncFromCloud({ silent: true });
   });
+ main
 }
 
 function loadState() {
@@ -243,6 +240,7 @@ function normalizeState(input) {
         name: String(item.name || 'Compte'),
         country: item.country === 'France' ? 'France' : 'Canada',
         currency: item.currency === 'EUR' ? 'EUR' : 'CAD',
+        emoji: normalizeEmoji(item.emoji, item.currency, item.country),
         openingBalance: Number(item.openingBalance) || 0,
         createdAt: item.createdAt || new Date().toISOString(),
       }))
@@ -477,8 +475,8 @@ function applyIncomingState(nextState) {
 
 function renderAll() {
   renderSelectOptions();
-  renderDashboard();
-  renderAccounts();
+  renderHome();
+  renderAccountsSettings();
   renderExpenses();
   renderIncomes();
   renderTransfers();
@@ -488,98 +486,90 @@ function renderAll() {
 function renderSelectOptions() {
   const accounts = state.accounts;
   const options = accounts
-    .map((account) => `<option value="${account.id}">${escapeHtml(account.name)} · ${account.currency}</option>`)
+    .map((account) => `<option value="${account.id}">${escapeHtml(account.emoji || defaultAccountEmoji(account))} ${escapeHtml(account.name)} · ${account.currency}</option>`)
     .join('');
 
   [forms.expense.accountId, forms.income.accountId, forms.transfer.sourceAccountId, forms.transfer.destinationAccountId].forEach((select) => {
     const currentValue = select.value;
-    select.innerHTML = options || '<option value="">Ajoutez d\'abord un compte</option>';
+    select.innerHTML = options || '<option value="">Ajoutez d’abord un compte</option>';
     if (accounts.some((account) => account.id === currentValue)) {
       select.value = currentValue;
     }
   });
 }
 
-function renderDashboard() {
+function renderHome() {
   const summary = computeMonthlySummary(ui.selectedMonth);
   const patrimonyCad = computeTotalPatrimonyInCAD();
-  const patrimonyEur = convertAmount(patrimonyCad, 'CAD', 'EUR');
   const displayCurrency = state.settings.displayCurrency;
+  const primaryValue = displayCurrency === 'CAD' ? patrimonyCad : convertAmount(patrimonyCad, 'CAD', 'EUR');
+  const secondaryCurrency = displayCurrency === 'CAD' ? 'EUR' : 'CAD';
+  const secondaryValue = convertAmount(primaryValue, displayCurrency, secondaryCurrency);
 
-  refs.metrics.innerHTML = [
-    metricCard('Patrimoine total', formatCurrency(displayCurrency === 'CAD' ? patrimonyCad : patrimonyEur, displayCurrency), `Vue principale en ${displayCurrency}`),
-    metricCard('Patrimoine en CAD', formatCurrency(patrimonyCad, 'CAD'), 'Total converti'),
-    metricCard('Patrimoine en EUR', formatCurrency(patrimonyEur, 'EUR'), 'Total converti'),
-    metricCard('Argent reçu', formatCurrency(summary.incomesDisplay, displayCurrency), `${formatMonthLabel(ui.selectedMonth)}`),
-    metricCard('Dépenses variables', formatCurrency(summary.variableExpensesDisplay, displayCurrency), `${summary.variableCount} opération(s)`),
-    metricCard('Dépenses fixes', formatCurrency(summary.fixedExpensesDisplay, displayCurrency), `${state.fixedExpenses.length} récurrente(s)`),
-    metricCard('Solde du mois', formatCurrency(summary.monthBalanceDisplay, displayCurrency), summary.monthBalanceDisplay >= 0 ? 'Vous restez positifs' : 'À surveiller'),
-  ].join('');
+  refs.heroTotal.textContent = formatCurrency(primaryValue, displayCurrency);
+  refs.heroSecondary.textContent = formatCurrency(secondaryValue, secondaryCurrency);
+  refs.heroMonth.textContent = formatMonthLabel(ui.selectedMonth);
 
-  refs.accountsOverview.innerHTML = state.accounts.length
+  refs.homeAccounts.innerHTML = state.accounts.length
     ? state.accounts
         .map((account) => {
           const balance = computeAccountBalance(account.id);
-          const secondaryCurrency = account.currency === 'CAD' ? 'EUR' : 'CAD';
           return `
-            <article class="account-overview-card">
-              <div class="card-row">
-                <h3>${escapeHtml(account.name)}</h3>
-                <span class="account-badge">${escapeHtml(account.country)} · ${account.currency}</span>
-              </div>
-              <p class="metric-value ${balance >= 0 ? 'amount-positive' : 'amount-negative'}">${formatCurrency(balance, account.currency)}</p>
-              <p class="summary-caption">Équivalent ${formatCurrency(convertAmount(balance, account.currency, secondaryCurrency), secondaryCurrency)}</p>
+            <article class="account-tile">
+              <span class="account-emoji">${escapeHtml(account.emoji || defaultAccountEmoji(account))}</span>
+              <p class="account-label">${escapeHtml(account.name)}</p>
+              <p class="account-balance ${balance >= 0 ? 'amount-positive' : 'amount-negative'}">${formatCurrency(balance, account.currency)}</p>
             </article>
           `;
         })
         .join('')
-    : '<div class="empty-state">Ajoutez un compte pour commencer.</div>';
+    : emptyState('Ajoutez un compte pour voir votre patrimoine.');
+
+  refs.monthBalanceValue.textContent = formatCurrency(summary.monthBalanceDisplay, displayCurrency);
+  refs.monthBalanceValue.className = `spotlight-amount ${summary.monthBalanceDisplay >= 0 ? 'amount-positive' : 'amount-negative'}`;
+  refs.monthStatChips.innerHTML = [
+    summaryChip('Reçus', formatCurrency(summary.incomesDisplay, displayCurrency), 'success'),
+    summaryChip('Fixes', formatCurrency(summary.fixedExpensesDisplay, displayCurrency), 'info'),
+    summaryChip('Variables', formatCurrency(summary.variableExpensesDisplay, displayCurrency), 'warning'),
+  ].join('');
+
+  const categories = computeCategoryBreakdown(ui.selectedMonth);
+  refs.categoryBreakdown.innerHTML = categories.length
+    ? categories
+        .map((item) => `
+          <div class="category-row">
+            <span>${escapeHtml(item.category)}</span>
+            <strong>${formatCurrency(item.amount, displayCurrency)}</strong>
+          </div>
+        `)
+        .join('')
+    : emptyState('Aucune dépense catégorisée pour ce mois.');
 }
 
-function renderAccounts() {
-  refs.accountsList.innerHTML = state.accounts.length
-    ? state.accounts
-        .map((account) => {
-          const balance = computeAccountBalance(account.id);
-          return itemCard({
-            title: account.name,
-            amountLabel: formatCurrency(balance, account.currency),
-            amountClass: balance >= 0 ? 'amount-positive' : 'amount-negative',
-            lines: [
-              `<span class="tag">${escapeHtml(account.country)}</span>`,
-              `<span class="tag">Solde d'ouverture ${formatCurrency(account.openingBalance, account.currency)}</span>`,
-            ],
-            meta: `Devise du compte : ${account.currency}`,
-            onEdit: `editAccount('${account.id}')`,
-            onDelete: `deleteAccount('${account.id}')`,
-          });
-        })
-        .join('')
-    : '<div class="empty-state">Aucun compte pour le moment.</div>';
+function renderAccountsSettings() {
+  const cards = [
+    ...state.accounts.map((account) => accountEditorCard(account)),
+    ...ui.accountDrafts.map((draft) => accountEditorCard(draft, true)),
+  ];
+  refs.accountsList.innerHTML = cards.length ? cards.join('') : emptyState('Ajoutez votre premier compte.');
 }
 
 function renderExpenses() {
   refs.expensesList.innerHTML = state.expenses.length
     ? [...state.expenses]
         .sort(sortByDateDesc)
-        .map((expense) => {
-          const account = findAccount(expense.accountId);
-          return itemCard({
-            title: expense.description,
-            amountLabel: formatCurrency(expense.amount, account?.currency || 'CAD'),
-            amountClass: 'amount-negative',
-            lines: [
-              `<span class="tag">${formatDate(expense.date)}</span>`,
-              `<span class="tag">${escapeHtml(expense.category)}</span>`,
-              `<span class="tag">${escapeHtml(account?.name || 'Compte supprimé')}</span>`,
-            ],
-            meta: 'Dépense variable',
-            onEdit: `editExpense('${expense.id}')`,
-            onDelete: `deleteExpense('${expense.id}')`,
-          });
-        })
+        .map((expense) => ledgerCard({
+          title: expense.description,
+          amountLabel: formatCurrency(expense.amount, findAccount(expense.accountId)?.currency || 'CAD'),
+          amountClass: 'amount-negative',
+          metaLeft: formatDate(expense.date),
+          metaRight: expense.category,
+          note: findAccount(expense.accountId)?.name || 'Compte supprimé',
+          editAction: `editExpense('${expense.id}')`,
+          deleteAction: `deleteExpense('${expense.id}')`,
+        }))
         .join('')
-    : '<div class="empty-state">Aucune dépense enregistrée.</div>';
+    : emptyState('Aucune dépense enregistrée.');
 }
 
 function renderIncomes() {
@@ -588,22 +578,19 @@ function renderIncomes() {
         .sort(sortByDateDesc)
         .map((income) => {
           const account = findAccount(income.accountId);
-          return itemCard({
+          return ledgerCard({
             title: income.description,
             amountLabel: formatCurrency(income.amount, income.currency),
             amountClass: 'amount-positive',
-            lines: [
-              `<span class="tag">${formatDate(income.date)}</span>`,
-              `<span class="tag">Vers ${escapeHtml(account?.name || 'Compte supprimé')}</span>`,
-              `<span class="tag">${income.currency}</span>`,
-            ],
-            meta: `Crédité sur le compte en ${account?.currency || income.currency}`,
-            onEdit: `editIncome('${income.id}')`,
-            onDelete: `deleteIncome('${income.id}')`,
+            metaLeft: formatDate(income.date),
+            metaRight: income.currency,
+            note: `Vers ${account?.name || 'Compte supprimé'}`,
+            editAction: `editIncome('${income.id}')`,
+            deleteAction: `deleteIncome('${income.id}')`,
           });
         })
         .join('')
-    : '<div class="empty-state">Aucun revenu enregistré.</div>';
+    : emptyState('Aucun revenu enregistré.');
 }
 
 function renderTransfers() {
@@ -613,71 +600,138 @@ function renderTransfers() {
         .map((transfer) => {
           const source = findAccount(transfer.sourceAccountId);
           const destination = findAccount(transfer.destinationAccountId);
-          return itemCard({
+          return ledgerCard({
             title: transfer.description,
             amountLabel: formatCurrency(transfer.amount, source?.currency || 'CAD'),
             amountClass: 'amount-neutral',
-            lines: [
-              `<span class="tag">${formatDate(transfer.date)}</span>`,
-              `<span class="tag">${escapeHtml(source?.name || 'Compte source supprimé')}</span>`,
-              `<span class="tag">→ ${escapeHtml(destination?.name || 'Compte destination supprimé')}</span>`,
-            ],
-            meta: 'Montant saisi dans la devise du compte source',
-            onEdit: `editTransfer('${transfer.id}')`,
-            onDelete: `deleteTransfer('${transfer.id}')`,
+            metaLeft: formatDate(transfer.date),
+            metaRight: `${source?.name || 'Source'} → ${destination?.name || 'Destination'}`,
+            note: 'Montant saisi dans la devise du compte source',
+            editAction: `editTransfer('${transfer.id}')`,
+            deleteAction: `deleteTransfer('${transfer.id}')`,
           });
         })
         .join('')
-    : '<div class="empty-state">Aucun virement enregistré.</div>';
+    : emptyState('Aucun virement enregistré.');
 }
 
 function renderFixedExpenses() {
-  refs.fixedList.innerHTML = state.fixedExpenses.length
-    ? [...state.fixedExpenses]
-        .sort((a, b) => a.description.localeCompare(b.description, 'fr'))
-        .map((item) =>
-          itemCard({
-            title: item.description,
-            amountLabel: formatCurrency(item.amount, item.currency),
-            amountClass: 'amount-negative',
-            lines: [
-              `<span class="tag">Mensuel</span>`,
-              `<span class="tag">${escapeHtml(item.category)}</span>`,
-            ],
-            meta: 'Pris en compte dans le solde mensuel',
-            onEdit: `editFixedExpense('${item.id}')`,
-            onDelete: `deleteFixedExpense('${item.id}')`,
-          })
-        )
-        .join('')
-    : '<div class="empty-state">Aucune dépense fixe configurée.</div>';
+  const cards = [
+    ...state.fixedExpenses
+      .slice()
+      .sort((a, b) => a.description.localeCompare(b.description, 'fr'))
+      .map((item) => fixedEditorCard(item)),
+    ...ui.fixedDrafts.map((draft) => fixedEditorCard(draft, true)),
+  ];
+  refs.fixedList.innerHTML = cards.length ? cards.join('') : emptyState('Aucune dépense fixe configurée.');
 }
 
-function itemCard({ title, amountLabel, amountClass, lines, meta, onEdit, onDelete }) {
+function summaryChip(label, value, tone) {
   return `
-    <article class="item-card">
-      <div class="card-row">
-        <h3>${escapeHtml(title)}</h3>
-        <strong class="${amountClass}">${amountLabel}</strong>
+    <article class="stat-chip tone-${tone}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </article>
+  `;
+}
+
+function ledgerCard({ title, amountLabel, amountClass, metaLeft, metaRight, note, editAction, deleteAction }) {
+  return `
+    <article class="ledger-card">
+      <div class="ledger-top">
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          <p class="ledger-note">${escapeHtml(note)}</p>
+        </div>
+        <strong class="${amountClass}">${escapeHtml(amountLabel)}</strong>
       </div>
-      <div class="card-row">${lines.join('')}</div>
-      <p class="card-meta">${escapeHtml(meta)}</p>
-      <div class="card-actions">
-        <button type="button" class="text-button" onclick="${onEdit}">Modifier</button>
-        <button type="button" class="text-button" onclick="${onDelete}">Supprimer</button>
+      <div class="ledger-meta">
+        <span>${escapeHtml(metaLeft)}</span>
+        <span>${escapeHtml(metaRight)}</span>
+      </div>
+      <div class="inline-actions">
+        <button type="button" class="text-button" onclick="${editAction}">Modifier</button>
+        <button type="button" class="text-button danger-text" onclick="${deleteAction}">Supprimer</button>
       </div>
     </article>
   `;
 }
 
-function metricCard(label, value, caption) {
+function accountEditorCard(account, isDraft = false) {
   return `
-    <article class="metric-card">
-      <p class="metric-label">${escapeHtml(label)}</p>
-      <p class="metric-value">${escapeHtml(value)}</p>
-      <p class="summary-caption">${escapeHtml(caption)}</p>
-    </article>
+    <form class="settings-editor" data-editor="account" data-account-id="${isDraft ? '' : account.id}" data-draft-id="${isDraft ? account.id : ''}">
+      <div class="editor-grid editor-grid-account">
+        <label>
+          <span>Nom du compte</span>
+          <input name="name" type="text" value="${escapeAttribute(account.name)}" placeholder="Ex. Compte courant" required />
+        </label>
+        <label>
+          <span>Devise</span>
+          <select name="currency" required>
+            <option value="CAD" ${account.currency === 'CAD' ? 'selected' : ''}>CAD</option>
+            <option value="EUR" ${account.currency === 'EUR' ? 'selected' : ''}>EUR</option>
+          </select>
+        </label>
+        <label>
+          <span>Emoji / repère</span>
+          <input name="emoji" type="text" value="${escapeAttribute(account.emoji || '')}" maxlength="4" placeholder="🍁" />
+        </label>
+        <label>
+          <span>Solde d'ouverture</span>
+          <input name="openingBalance" type="number" step="0.01" inputmode="decimal" value="${account.openingBalance}" required />
+        </label>
+        <label>
+          <span>Pays / zone</span>
+          <select name="country" required>
+            <option value="Canada" ${account.country === 'Canada' ? 'selected' : ''}>Canada</option>
+            <option value="France" ${account.country === 'France' ? 'selected' : ''}>France</option>
+          </select>
+        </label>
+      </div>
+      <div class="inline-actions align-end">
+        <button type="submit" class="secondary-button">Enregistrer</button>
+        <button type="button" class="text-button danger-text" data-account-action="delete">Supprimer</button>
+      </div>
+    </form>
   `;
+}
+
+function fixedEditorCard(item, isDraft = false) {
+  return `
+    <form class="settings-editor" data-editor="fixed" data-fixed-id="${isDraft ? '' : item.id}" data-draft-id="${isDraft ? item.id : ''}">
+      <div class="fixed-row">
+        <div class="fixed-main">
+          <label>
+            <span>Nom</span>
+            <input name="description" type="text" value="${escapeAttribute(item.description)}" placeholder="Ex. Loyer" required />
+          </label>
+          <label>
+            <span>Montant</span>
+            <input name="amount" type="number" step="0.01" inputmode="decimal" value="${item.amount}" required />
+          </label>
+          <label>
+            <span>Devise</span>
+            <select name="currency" required>
+              <option value="CAD" ${item.currency === 'CAD' ? 'selected' : ''}>CAD</option>
+              <option value="EUR" ${item.currency === 'EUR' ? 'selected' : ''}>EUR</option>
+            </select>
+          </label>
+          <label>
+            <span>Catégorie</span>
+            <input name="category" type="text" value="${escapeAttribute(item.category)}" placeholder="Ex. Logement" required />
+          </label>
+        </div>
+        <div class="inline-actions align-end">
+          <button type="submit" class="secondary-button">Enregistrer</button>
+          <button type="button" class="text-button danger-text" data-fixed-action="delete">Supprimer</button>
+        </div>
+      </div>
+    </form>
+  `;
+}
+
+function emptyState(message) {
+  return `<div class="empty-state">${escapeHtml(message)}</div>`;
 }
 
 function computeAccountBalance(accountId) {
@@ -715,16 +769,15 @@ function computeTotalPatrimonyInCAD() {
 
 function computeMonthlySummary(selectedMonth) {
   const displayCurrency = state.settings.displayCurrency;
-  const variableExpensesBase = state.expenses
-    .filter((item) => getMonthFromDate(item.date) === selectedMonth)
-    .reduce((sum, item) => {
-      const account = findAccount(item.accountId);
-      return sum + convertAmount(item.amount, account?.currency || 'CAD', displayCurrency);
-    }, 0);
+  const monthExpenses = state.expenses.filter((item) => getMonthFromDate(item.date) === selectedMonth);
+  const monthIncomes = state.incomes.filter((item) => getMonthFromDate(item.date) === selectedMonth);
 
-  const incomesBase = state.incomes
-    .filter((item) => getMonthFromDate(item.date) === selectedMonth)
-    .reduce((sum, item) => sum + convertAmount(item.amount, item.currency, displayCurrency), 0);
+  const variableExpensesBase = monthExpenses.reduce((sum, item) => {
+    const account = findAccount(item.accountId);
+    return sum + convertAmount(item.amount, account?.currency || 'CAD', displayCurrency);
+  }, 0);
+
+  const incomesBase = monthIncomes.reduce((sum, item) => sum + convertAmount(item.amount, item.currency, displayCurrency), 0);
 
   const fixedExpensesBase = state.fixedExpenses.reduce(
     (sum, item) => sum + convertAmount(item.amount, item.currency, displayCurrency),
@@ -738,8 +791,24 @@ function computeMonthlySummary(selectedMonth) {
     variableExpensesDisplay: roundAmount(variableExpensesBase),
     fixedExpensesDisplay: roundAmount(fixedExpensesBase),
     monthBalanceDisplay,
-    variableCount: state.expenses.filter((item) => getMonthFromDate(item.date) === selectedMonth).length,
   };
+}
+
+function computeCategoryBreakdown(selectedMonth) {
+  const totals = new Map();
+  const displayCurrency = state.settings.displayCurrency;
+
+  state.expenses
+    .filter((item) => getMonthFromDate(item.date) === selectedMonth)
+    .forEach((item) => {
+      const account = findAccount(item.accountId);
+      const amount = convertAmount(item.amount, account?.currency || 'CAD', displayCurrency);
+      totals.set(item.category, roundAmount((totals.get(item.category) || 0) + amount));
+    });
+
+  return [...totals.entries()]
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 function convertAmount(amount, fromCurrency, toCurrency) {
@@ -750,47 +819,26 @@ function convertAmount(amount, fromCurrency, toCurrency) {
   return roundAmount(amount);
 }
 
-function handleAccountSubmit(event) {
-  event.preventDefault();
-  const payload = {
-    id: forms.account.id.value || createId(),
-    name: forms.account.name.value.trim(),
-    country: forms.account.country.value,
-    currency: forms.account.currency.value,
-    openingBalance: clampNumber(forms.account.openingBalance.value),
-    createdAt: forms.account.id.value ? findEntryById(state.accounts, forms.account.id.value)?.createdAt || new Date().toISOString() : new Date().toISOString(),
-  };
-
-  if (!payload.name) {
-    showToast('Le nom du compte est obligatoire.');
-    return;
-  }
-
-  upsertEntry(state.accounts, payload);
-  resetForm(forms.account);
-  persistAndRender('Compte enregistré.');
-}
-
 function handleExpenseSubmit(event) {
   event.preventDefault();
+  clearFormError(forms.expense.error);
+
   if (!state.accounts.length) {
-    showToast('Ajoutez d’abord un compte.');
-    return;
+    return failForm(forms.expense.error, 'Ajoutez d’abord un compte.');
   }
 
   const payload = {
     id: forms.expense.id.value || createId(),
     date: forms.expense.date.value,
     description: forms.expense.description.value.trim(),
+    category: forms.expense.category.value.trim(),
     amount: clampPositiveNumber(forms.expense.amount.value, 0),
     accountId: forms.expense.accountId.value,
-    category: forms.expense.category.value.trim(),
     createdAt: forms.expense.id.value ? findEntryById(state.expenses, forms.expense.id.value)?.createdAt || new Date().toISOString() : new Date().toISOString(),
   };
 
   if (!payload.description || !payload.date || !payload.accountId || !payload.category || payload.amount <= 0) {
-    showToast('Complétez correctement la dépense.');
-    return;
+    return failForm(forms.expense.error, 'Complétez correctement la dépense.');
   }
 
   upsertEntry(state.expenses, payload);
@@ -800,9 +848,16 @@ function handleExpenseSubmit(event) {
 
 function handleIncomeSubmit(event) {
   event.preventDefault();
+  clearFormError(forms.income.error);
+
   if (!state.accounts.length) {
-    showToast('Ajoutez d’abord un compte.');
-    return;
+    return failForm(forms.income.error, 'Ajoutez d’abord un compte.');
+  }
+
+  if (forms.income.currency.value === 'EUR') {
+    state.settings.exchangeRate = clampPositiveNumber(refs.incomeExchangeRate.value, state.settings.exchangeRate);
+    refs.exchangeRateInput.value = state.settings.exchangeRate;
+    refs.incomeExchangeRate.value = state.settings.exchangeRate;
   }
 
   const payload = {
@@ -816,8 +871,7 @@ function handleIncomeSubmit(event) {
   };
 
   if (!payload.description || !payload.date || !payload.accountId || payload.amount <= 0) {
-    showToast('Complétez correctement le revenu.');
-    return;
+    return failForm(forms.income.error, 'Complétez correctement le revenu.');
   }
 
   upsertEntry(state.incomes, payload);
@@ -827,9 +881,10 @@ function handleIncomeSubmit(event) {
 
 function handleTransferSubmit(event) {
   event.preventDefault();
+  clearFormError(forms.transfer.error);
+
   if (state.accounts.length < 2) {
-    showToast('Il faut au moins deux comptes pour faire un virement.');
-    return;
+    return failForm(forms.transfer.error, 'Il faut au moins deux comptes pour faire un virement.');
   }
 
   const payload = {
@@ -843,13 +898,11 @@ function handleTransferSubmit(event) {
   };
 
   if (!payload.date || !payload.sourceAccountId || !payload.destinationAccountId || !payload.description || payload.amount <= 0) {
-    showToast('Complétez correctement le virement.');
-    return;
+    return failForm(forms.transfer.error, 'Complétez correctement le virement.');
   }
 
   if (payload.sourceAccountId === payload.destinationAccountId) {
-    showToast('Le compte source et le compte destination doivent être différents.');
-    return;
+    return failForm(forms.transfer.error, 'Le compte source et le compte destination doivent être différents.');
   }
 
   upsertEntry(state.transfers, payload);
@@ -857,15 +910,65 @@ function handleTransferSubmit(event) {
   persistAndRender('Virement enregistré.');
 }
 
-function handleFixedSubmit(event) {
+function handleAccountEditorSubmit(event) {
+  const form = event.target.closest('form[data-editor="account"]');
+  if (!form) return;
   event.preventDefault();
+
+  const draftId = form.dataset.draftId;
+  const accountId = form.dataset.accountId || createId();
+  const currency = form.elements.currency.value;
+  const country = form.elements.country.value;
   const payload = {
-    id: forms.fixed.id.value || createId(),
-    description: forms.fixed.description.value.trim(),
-    amount: clampPositiveNumber(forms.fixed.amount.value, 0),
-    currency: forms.fixed.currency.value,
-    category: forms.fixed.category.value.trim(),
-    createdAt: forms.fixed.id.value ? findEntryById(state.fixedExpenses, forms.fixed.id.value)?.createdAt || new Date().toISOString() : new Date().toISOString(),
+    id: accountId,
+    name: form.elements.name.value.trim(),
+    country,
+    currency,
+    emoji: normalizeEmoji(form.elements.emoji.value.trim(), currency, country),
+    openingBalance: clampNumber(form.elements.openingBalance.value),
+    createdAt: form.dataset.accountId ? findEntryById(state.accounts, form.dataset.accountId)?.createdAt || new Date().toISOString() : new Date().toISOString(),
+  };
+
+  if (!payload.name) {
+    showToast('Le nom du compte est obligatoire.');
+    return;
+  }
+
+  upsertEntry(state.accounts, payload);
+  if (draftId) ui.accountDrafts = ui.accountDrafts.filter((item) => item.id !== draftId);
+  persistAndRender('Compte enregistré.');
+}
+
+function handleAccountEditorClick(event) {
+  const button = event.target.closest('[data-account-action="delete"]');
+  if (!button) return;
+  const form = button.closest('form[data-editor="account"]');
+  if (!form) return;
+
+  const draftId = form.dataset.draftId;
+  if (draftId) {
+    ui.accountDrafts = ui.accountDrafts.filter((item) => item.id !== draftId);
+    renderAccountsSettings();
+    return;
+  }
+
+  deleteAccount(form.dataset.accountId);
+}
+
+function handleFixedEditorSubmit(event) {
+  const form = event.target.closest('form[data-editor="fixed"]');
+  if (!form) return;
+  event.preventDefault();
+
+  const draftId = form.dataset.draftId;
+  const fixedId = form.dataset.fixedId || createId();
+  const payload = {
+    id: fixedId,
+    description: form.elements.description.value.trim(),
+    amount: clampPositiveNumber(form.elements.amount.value, 0),
+    currency: form.elements.currency.value,
+    category: form.elements.category.value.trim(),
+    createdAt: form.dataset.fixedId ? findEntryById(state.fixedExpenses, form.dataset.fixedId)?.createdAt || new Date().toISOString() : new Date().toISOString(),
   };
 
   if (!payload.description || !payload.category || payload.amount <= 0) {
@@ -874,8 +977,24 @@ function handleFixedSubmit(event) {
   }
 
   upsertEntry(state.fixedExpenses, payload);
-  resetForm(forms.fixed);
+  if (draftId) ui.fixedDrafts = ui.fixedDrafts.filter((item) => item.id !== draftId);
   persistAndRender('Dépense fixe enregistrée.');
+}
+
+function handleFixedEditorClick(event) {
+  const button = event.target.closest('[data-fixed-action="delete"]');
+  if (!button) return;
+  const form = button.closest('form[data-editor="fixed"]');
+  if (!form) return;
+
+  const draftId = form.dataset.draftId;
+  if (draftId) {
+    ui.fixedDrafts = ui.fixedDrafts.filter((item) => item.id !== draftId);
+    renderFixedExpenses();
+    return;
+  }
+
+  deleteFixedExpense(form.dataset.fixedId);
 }
 
 function upsertEntry(collection, payload) {
@@ -887,19 +1006,6 @@ function upsertEntry(collection, payload) {
   collection.push(payload);
 }
 
-function editAccount(id) {
-  const item = findEntryById(state.accounts, id);
-  if (!item) return;
-  populateForm(forms.account, {
-    id: item.id,
-    name: item.name,
-    country: item.country,
-    currency: item.currency,
-    openingBalance: item.openingBalance,
-  }, 'Modifier le compte');
-  setActiveTab('comptes');
-}
-
 function editExpense(id) {
   const item = findEntryById(state.expenses, id);
   if (!item) return;
@@ -907,11 +1013,11 @@ function editExpense(id) {
     id: item.id,
     date: item.date,
     description: item.description,
+    category: item.category,
     amount: item.amount,
     accountId: item.accountId,
-    category: item.category,
   }, 'Modifier la dépense');
-  setActiveTab('depenses');
+  setActiveScreen('depense');
 }
 
 function editIncome(id) {
@@ -925,7 +1031,9 @@ function editIncome(id) {
     currency: item.currency,
     accountId: item.accountId,
   }, 'Modifier le revenu');
-  setActiveTab('revenus');
+  setActiveScreen('argent');
+  setMoneyMode('revenu');
+  updateIncomeExchangeVisibility();
 }
 
 function editTransfer(id) {
@@ -934,25 +1042,13 @@ function editTransfer(id) {
   populateForm(forms.transfer, {
     id: item.id,
     date: item.date,
+    description: item.description,
     sourceAccountId: item.sourceAccountId,
     destinationAccountId: item.destinationAccountId,
     amount: item.amount,
-    description: item.description,
   }, 'Modifier le virement');
-  setActiveTab('virements');
-}
-
-function editFixedExpense(id) {
-  const item = findEntryById(state.fixedExpenses, id);
-  if (!item) return;
-  populateForm(forms.fixed, {
-    id: item.id,
-    description: item.description,
-    amount: item.amount,
-    currency: item.currency,
-    category: item.category,
-  }, 'Modifier la dépense fixe');
-  setActiveTab('fixes');
+  setActiveScreen('argent');
+  setMoneyMode('virement');
 }
 
 function deleteAccount(id) {
@@ -1000,21 +1096,25 @@ function populateForm(formGroup, values, title) {
   });
   formGroup.title.textContent = title;
   formGroup.cancel.classList.remove('hidden');
+  clearFormError(formGroup.error);
 }
 
 function resetForm(formGroup) {
   formGroup.element.reset();
   formGroup.id.value = '';
   formGroup.cancel.classList.add('hidden');
+  clearFormError(formGroup.error);
   const defaultTitles = new Map([
-    [forms.account, 'Ajouter un compte'],
-    [forms.expense, 'Ajouter une dépense'],
-    [forms.income, 'Ajouter un revenu'],
-    [forms.transfer, 'Ajouter un virement'],
-    [forms.fixed, 'Ajouter une dépense fixe'],
+    [forms.expense, 'Nouvelle dépense'],
+    [forms.income, 'Revenu / Salaire'],
+    [forms.transfer, 'Virement'],
   ]);
   formGroup.title.textContent = defaultTitles.get(formGroup);
   setDefaultDates();
+  if (formGroup === forms.income) {
+    refs.incomeExchangeRate.value = state.settings.exchangeRate;
+    updateIncomeExchangeVisibility();
+  }
 }
 
 function setDefaultDates() {
@@ -1024,10 +1124,22 @@ function setDefaultDates() {
   if (!forms.transfer.date.value) forms.transfer.date.value = today;
 }
 
-function setActiveTab(tabName) {
-  ui.activeTab = tabName;
-  refs.tabButtons.forEach((button) => button.classList.toggle('active', button.dataset.tab === tabName));
-  refs.panels.forEach((panel) => panel.classList.toggle('active', panel.dataset.panel === tabName));
+function setActiveScreen(screenName) {
+  ui.activeScreen = screenName;
+  refs.navButtons.forEach((button) => button.classList.toggle('active', button.dataset.screenTarget === screenName));
+  refs.screens.forEach((screen) => screen.classList.toggle('active', screen.dataset.screen === screenName));
+}
+
+function setMoneyMode(mode) {
+  ui.moneyMode = mode;
+  refs.moneyButtons.forEach((button) => button.classList.toggle('active', button.dataset.moneyMode === mode));
+  refs.moneyPanels.forEach((panel) => panel.classList.toggle('active', panel.dataset.moneyPanel === mode));
+}
+
+function updateIncomeExchangeVisibility() {
+  const isEuro = forms.income.currency.value === 'EUR';
+  refs.incomeExchangeWrap.classList.toggle('hidden', !isEuro);
+  refs.incomeExchangeRate.value = state.settings.exchangeRate;
 }
 
 function exportData() {
@@ -1051,8 +1163,10 @@ function importData(event) {
       const parsed = JSON.parse(String(reader.result));
       const importedState = normalizeState(parsed);
       Object.assign(state, importedState);
+
       syncSettingsInputs();
       restartSyncPolling();
+ main
       persistAndRender('Import réussi.');
     } catch (error) {
       console.error(error);
@@ -1073,9 +1187,13 @@ function resetApp() {
     state[key] = fresh[key];
   });
   ui.selectedMonth = getCurrentMonth();
+  ui.accountDrafts = [];
+  ui.fixedDrafts = [];
   refs.monthInput.value = ui.selectedMonth;
+
   syncSettingsInputs();
   restartSyncPolling();
+   main
   Object.values(forms).forEach(resetForm);
   persistAndRender('Application réinitialisée.');
 }
@@ -1087,12 +1205,55 @@ function showToast(message) {
   showToast.timer = setTimeout(() => refs.toast.classList.remove('visible'), 2600);
 }
 
+function failForm(errorNode, message) {
+  errorNode.textContent = message;
+  errorNode.classList.remove('hidden');
+}
+
+function clearFormError(errorNode) {
+  errorNode.textContent = '';
+  errorNode.classList.add('hidden');
+}
+
 function findAccount(id) {
   return state.accounts.find((account) => account.id === id);
 }
 
 function findEntryById(collection, id) {
   return collection.find((entry) => entry.id === id);
+}
+
+function createAccountDraft() {
+  return {
+    id: createId(),
+    name: '',
+    country: 'Canada',
+    currency: 'CAD',
+    emoji: '🏦',
+    openingBalance: 0,
+  };
+}
+
+function createFixedDraft() {
+  return {
+    id: createId(),
+    description: '',
+    amount: 0,
+    currency: 'CAD',
+    category: '',
+  };
+}
+
+function normalizeEmoji(value, currency, country) {
+  const trimmed = String(value || '').trim();
+  if (trimmed) return [...trimmed].slice(0, 2).join('');
+  return defaultAccountEmoji({ currency, country });
+}
+
+function defaultAccountEmoji(account) {
+  if (account?.currency === 'EUR' || account?.country === 'France') return '🇫🇷';
+  if (account?.currency === 'CAD' || account?.country === 'Canada') return '🍁';
+  return '🏦';
 }
 
 function formatCurrency(amount, currency) {
@@ -1164,16 +1325,17 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll('`', '&#96;');
+}
+
 function sortByDateDesc(a, b) {
   return String(b.date).localeCompare(String(a.date));
 }
 
-// Expose edit/delete actions for inline buttons without any framework/runtime dependency.
-window.editAccount = editAccount;
 window.editExpense = editExpense;
 window.editIncome = editIncome;
 window.editTransfer = editTransfer;
-window.editFixedExpense = editFixedExpense;
 window.deleteAccount = deleteAccount;
 window.deleteExpense = deleteExpense;
 window.deleteIncome = deleteIncome;
